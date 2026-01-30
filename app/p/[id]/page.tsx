@@ -22,11 +22,10 @@ async function getPaste(id: string) {
   return paste;
 }
 
-export default async function PastePage({ 
-  params 
-}: { 
-  params: { id: string } 
+export default async function PastePage(props: { 
+  params: Promise<{ id: string }> 
 }) {
+  const params = await props.params;
   const paste = await getPaste(params.id);
   
   if (!paste) {

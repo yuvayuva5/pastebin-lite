@@ -13,11 +13,11 @@ function getCurrentTime(request: Request): number {
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   const id = params.id;
   
-  // Try to get the paste from database
   const pasteData = await kv.get(`paste:${id}`);
   
   if (!pasteData) {
@@ -27,7 +27,7 @@ export async function GET(
   const paste = JSON.parse(pasteData as string);
   const currentTime = getCurrentTime(request);
   
-  // Check if paste has expired (time limit)
+  // Check TTL expiry
   if (paste.ttl_seconds) {
     const expiresAt = paste.created_at + (paste.ttl_seconds * 1000);
     if (currentTime >= expiresAt) {
@@ -35,16 +35,16 @@ export async function GET(
     }
   }
   
-  // Check if paste has reached view limit
+  // Check view limit BEFORE incrementing
   if (paste.max_views && paste.view_count >= paste.max_views) {
     return Response.json({ error: 'View limit exceeded' }, { status: 404 });
   }
   
-  // Increase view count by 1
+  // Increment view count
   paste.view_count += 1;
   await kv.set(`paste:${id}`, JSON.stringify(paste));
   
-  // Send back the paste data
+  // Build response
   const response = {
     content: paste.content,
     remaining_views: paste.max_views ? paste.max_views - paste.view_count : null,
