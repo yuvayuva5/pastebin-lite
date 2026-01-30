@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pastebin Lite
 
-## Getting Started
+A simple pastebin application where users can create text pastes with optional time-based expiry (TTL) and view-count limits.
 
-First, run the development server:
+## Features
 
+- Create text pastes with unique shareable URLs
+- Optional time-to-live (TTL) expiry
+- Optional view-count limits
+- Clean, responsive UI
+- RESTful API endpoints
+
+## Local Development
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm
+
+### Setup
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <your-repo-url>
+cd pastebin-lite
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables (for local development with Vercel KV):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file with:
+```
+KV_URL=your_kv_url
+KV_REST_API_URL=your_kv_rest_api_url
+KV_REST_API_TOKEN=your_kv_rest_api_token
+KV_REST_API_READ_ONLY_TOKEN=your_kv_rest_api_read_only_token
+```
 
-## Learn More
+4. Run the development server:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Persistence Layer
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This application uses **Vercel KV** (Redis) for data persistence. 
 
-## Deploy on Vercel
+**Why Vercel KV?**
+- Serverless-compatible (works with Vercel's edge functions)
+- Fast read/write operations
+- Simple key-value storage perfect for this use case
+- Easy integration with Next.js on Vercel
+- Free tier available
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Each paste is stored as a JSON object with the key pattern `paste:{id}`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Design Decisions
+
+1. **Next.js 14 with App Router**: Modern React framework with server components for optimal performance
+
+2. **API Routes**: RESTful endpoints following the specification:
+   - `GET /api/healthz` - Health check
+   - `POST /api/pastes` - Create paste
+   - `GET /api/pastes/:id` - Fetch paste (API)
+   - `GET /p/:id` - View paste (HTML)
+
+3. **View Counting**: Only API fetches (`/api/pastes/:id`) increment the view count, not HTML page views
+
+4. **Test Mode Support**: Implements `x-test-now-ms` header support for deterministic time-based testing when `TEST_MODE=1`
+
+5. **Security**: Paste content is rendered safely using React's default XSS protection (text is escaped by default)
+
+6. **ID Generation**: Uses `nanoid` for short, URL-safe unique identifiers (10 characters)
+
+7. **Error Handling**: All errors return appropriate HTTP status codes with JSON error messages
+
+## API Documentation
+
+### Health Check
+```
+GET /api/healthz
+Response: { "ok": true }
+```
+
+### Create Paste
+```
+POST /api/pastes
+Body: {
+  "content": "string",       // required
+  "ttl_seconds": 60,         // optional, integer >= 1
+  "max_views": 5             // optional, integer >= 1
+}
+Response: {
+  "id": "string",
+  "url": "https://your-app.com/p/{id}"
+}
+```
+
+### Fetch Paste (API)
+```
+GET /api/pastes/:id
+Response: {
+  "content": "string",
+  "remaining_views": 4,      // null if unlimited
+  "expires_at": "ISO8601"    // null if no TTL
+}
+```
+
+### View Paste (HTML)
+```
+GET /p/:id
+Returns: HTML page with paste content
+Returns: 404 if paste not found or expired
+```
+
+## Deployment
+
+This project is designed to be deployed on Vercel.
+
+1. Push code to GitHub
+2. Import project in Vercel
+3. Add Vercel KV database from Storage tab
+4. Deploy
+
+## License
+
+MIT
